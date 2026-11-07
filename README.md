@@ -1,134 +1,266 @@
 # commander-room
 
-An automated, human-in-the-loop Incident Command Room built with **Switch AI**
+An incident room where two AI agents do the digging, and a human still makes the call. Built with **Switch AI**
 
-[![Interactive Switch Demo](./demo.gif)](https://codepen.io/Pooja-Bhavani/pen/01a1b5cc-ce34-74fa-b113-1201691e707d)
+video: <VIDEO_LINK>
 
-When a release breaks production, two agents handle it in a chat room:
+The problem
 
-- **incident-inspector** reads the real cluster (pods, logs, events, rollout history) and posts the cause with the exact evidence. It cannot change anything.
-- **incident-release** proposes the fix and changes nothing until the owner replies `approve`. Then it rolls back, checks the pods, and files the incident report as a GitHub issue.
+When a release breaks production, the first ten minutes are messy. People paste kubectl commands into the chat, someone asks which release just went out, and nobody is sure who is allowed to roll things back.
 
-Everything in the demo is real: a real Kubernetes cluster, a real crash (OOMKilled), a real rollback, a real GitHub issue.
+I wanted to see if AI agents could sit in that same chat, do the slow investigation work, and still leave the risky decision to a person.
 
-Demo video: `<VIDEO_LINK>`
+What I built
 
-## How the pieces fit
+A small incident room in Mattermost with two agents in it:
 
-```
-you in Mattermost chat
-        |
-      Switch  (room, addressing, agent sessions)
-        |
-   +----+-----------------+
-   |                      |
-incident-inspector   incident-release
-(read-only)          (one deployment only, after approval)
-   |                      |
-   +------ Kubernetes (kind) ------+
-                                  |
-                        GitHub issue (incident report)
-```
+incident-inspector investigates. It runs real kubectl commands on a real Kubernetes cluster, finds why the app is failing, and tells you with proof. It can only read. It cannot change anything.
+incident-release fixes. It tells you what it is about to do and waits. When you reply approve, it rolls the app back, checks the pods are healthy again, and files the incident report as a GitHub issue.
 
-- **Mattermost** is the team chat. It ships with the self-hosted Switch stack.
-- **Switch** puts the agents in the room so they read the conversation and answer in it.
-- **Agents** run with Codex, started on a machine by the Switch agent controller.
-- **The app** (`app/`) is a small checkout service. `v1` is healthy. `v2` preloads a 300 MB price cache into pods limited to 128Mi, so the kernel kills it at startup.
+Nothing in the demo is faked. The cluster is real, the crash is real (the app runs out of memory), the rollback is real, and the report is a real GitHub issue.
 
-## Safety
+What it looks like
 
-The limits are enforced by Kubernetes, not only by prompts (`k8s/rbac.yaml`):
+I ship a bad release, version 2 of a small checkout service. It loads a 300 MB cache when it starts, but its pods are only allowed 128 MB, so Kubernetes kills them again and again.
 
-| Agent | Allowed on the cluster |
-|---|---|
-| incident-inspector | `get`, `list`, `watch` on pods, pod logs, events, services, endpoints, deployments, replicasets. No secrets. |
-| incident-release | `get` and `patch` on the `checkout` deployment only, plus read access to pods, events and replicasets. |
+Then, in the chat:
 
-Check it yourself:
+You:                 @incident-inspector the shop checkout service looks broken after the latest release. Investigate.
+incident-inspector:  The new pod is OOMKilled (exit code 137). Memory limit is 128Mi and the logs say
+                     "loading price cache (300 MB)". The change came with "release v2". Proposed fix: roll back to v1.
 
-```bash
+You:                 @incident-release roll back checkout to the previous revision
+incident-release:    I will roll deployment/checkout back to the previous revision. Reply "approve" to go ahead.
+
+You:                 approve
+incident-release:    Rolled back. Both pods are Ready. Incident report: <link to GitHub issue>
+How it works
+
+Architecture
+
+In plain words:
+
+You write in Mattermost, the team chat.
+Switch puts the agents in that room. It reads your message, works out which agent it is for, and keeps the whole conversation.
+A small Switch program called the agent controller runs on the same machine and starts the agent when it is needed.
+The agents run on Codex. Each one runs real kubectl commands with its own key file against the Kubernetes cluster.
+Kubernetes checks every command against that agent's permissions.
+The answer comes back to the chat. After a rollback, the Release agent files the report on GitHub.
+Why Switch is the centre of it
+
+Switch is not a side feature here. It is the room. It connects the chat to the agents, decides who an agent will answer to, starts the agent sessions, and keeps one shared conversation that both agents read. That is why the second agent knows what the first one found without me copying anything. Without Switch this would be two scripts and a bot token.
+
+Why it is safe
+
+I did not want to rely only on a prompt. The limits are set in Kubernetes itself (see k8s/rbac.yaml):
+
+Agent	What it is allowed to do
+incident-inspector	Read pods, logs, events, deployments and similar things. Nothing else. It cannot read secrets.
+incident-release	Read the same things, and change the checkout deployment only.
+
+You can check it yourself:
+
+bash
 kubectl --kubeconfig agents/inspector/kubeconfig auth can-i --list -n shop
-kubectl --kubeconfig agents/release/kubeconfig   auth can-i --list -n shop
-```
+kubectl --kubeconfig agents/release/kubeconfig auth can-i --list -n shop
 
-The Release agent is instructed to act only after an explicit `approve` from the owner (`docs/agents/release.md`).
+The "wait for approve" rule is an instruction in the Release agent's prompt. It is not a lock. The permissions are the lock: even if the agent ignored its instructions, the cluster would still refuse anything outside that one deployment.
 
-### Known limits
+What you need
+Thing	Notes
+A Linux machine	I used an AWS EC2 t3.large (2 CPUs, 8 GB RAM) with a 30 GB disk, Ubuntu. A 2 GB machine was too small.
+Docker with the Compose plugin	Runs Switch, Mattermost and the cluster.
+kind and kubectl	The local Kubernetes cluster and its command line.
+Node 24 and pnpm	Only to build the agent controller.
+git and gh	gh is the GitHub command line, used by the Release agent.
+Codex CLI	npm install -g @openai/codex, signed in with a ChatGPT account. A free account works, with limited use.
+A GitHub repo and a token	A fine-grained token limited to this repo, with Issues: Read and write.
 
-- The two agents run as the same Linux user on one machine. A prompt tells each agent to stay in its own directory, but nothing at the OS level stops the Inspector from reading the Release agent's kubeconfig. Separate agent users (`install-service --separate-users` in the controller) would close this. Not done here.
-- The `gh` login used to file the report is shared by both agents. It is a fine-grained token limited to this repository's issues.
-- The agents use Codex on a free ChatGPT sign-in, which has limited usage.
-- No Switch controller release was published during the event, so the controller was built from the Switch source.
+Install the basics on Ubuntu:
 
-## Run it yourself
+bash
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-v2 git gh nodejs npm
+sudo usermod -aG docker $USER   # log out and back in after this
 
-You need Docker, `kind`, `kubectl`, Node 24 (to build the controller) and a Codex sign-in.
+curl -Lo kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64 && chmod +x kind && sudo mv kind /usr/local/bin/
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 
-**1. The cluster**
+sudo npm install -g @openai/codex pnpm@10.28.2
 
-```bash
-./scripts/01-cluster.sh      # kind cluster "commander-room"
-./scripts/02-deploy-v1.sh    # healthy checkout:v1 and the RBAC roles
-./scripts/04-agent-access.sh # writes agents/inspector/kubeconfig and agents/release/kubeconfig
-```
+The controller build needs Node 24. Install it with nvm (nvm install 24) for the build step only.
 
-**2. Switch (self-hosted)**
+Set it up (one time)
+1. Get this repo
+bash
+git clone https://github.com/pooja-bhavani/commander-room.git
+cd commander-room
+2. Make the cluster and the broken app's healthy version
+bash
+./scripts/01-cluster.sh       # creates a kind cluster called commander-room
+./scripts/02-deploy-v1.sh     # deploys the healthy app and the agent permissions
+./scripts/04-agent-access.sh  # makes one key file for each agent (valid for 96 hours)
+kubectl -n shop get pods      # two pods, 1/1 Running
+3. Start Switch and Mattermost
+bash
+git clone https://github.com/sandbox-quantum/switch.git ~/switch
+cd ~/switch
 
-Clone `sandbox-quantum/switch`, then in its `.env` set `SWITCH_VERSION=0.31.0`, `FEATURE_FLAGS_ENABLED=agent_management` and a `CONTROLLER_TOKEN_SECRET` of at least 32 characters. Start it:
+Create a .env file there (the Switch repo has an .env.example) and set these three lines:
 
-```bash
+SWITCH_VERSION=0.31.0
+FEATURE_FLAGS_ENABLED=agent_management
+CONTROLLER_TOKEN_SECRET=<any random text, 32 characters or longer>
+
+Then start it:
+
+bash
 docker compose -f deploy/local/standalone-docker-compose.yml \
   --profile collab --profile gateway --project-directory . up -d
-```
+curl -s http://127.0.0.1:8000/health     # should print {"status":"ok"}
 
-The gateway is on port 3000, Mattermost on 8065 and the Switch API on 8000.
+You now have three things running:
 
-**3. The agent controller**
+What	Port
+Switch dashboard (the gateway)	3000
+Mattermost chat	8065
+Switch API	8000
 
-Build it from the Switch checkout (`console/`) with Node 24:
+They only listen on the machine itself. To reach them from your laptop, open a tunnel and leave it running:
 
-```bash
+bash
+ssh -i <your-key>.pem -L 8065:127.0.0.1:8065 -L 3000:127.0.0.1:3000 -L 8000:127.0.0.1:8000 ubuntu@<machine-ip>
+
+Then open http://localhost:3000 (dashboard) and http://localhost:8065 (Mattermost).
+
+4. Build the agent controller
+
+No ready-made release of the controller existed during the hackathon, so I built it from the Switch source with Node 24:
+
+bash
+source ~/.nvm/nvm.sh && nvm use 24
+cd ~/switch/console
 pnpm install --filter @switch-console/agent-controller...
 pnpm --filter "@switch-console/agent-controller^..." run build
 pnpm --filter @switch-console/agent-controller run package
-npm install --global console/packages/agent-controller/dist-package/switch-agent-controller-*.tgz
-```
+nvm use system
+sudo npm install --global ~/switch/console/packages/agent-controller/dist-package/switch-agent-controller-*.tgz
+5. Sign in to Codex and let it reach the cluster
 
-In the gateway, open Machines, then Add machine, and enroll:
+In your ChatGPT account, go to Security settings and turn on device code sign-in. Then:
 
-```bash
-switch-agent-controller enroll --server http://127.0.0.1:8000 --code <code> --name incident-box
+bash
+codex login --device-auth      # open the link it prints and enter the code
+codex login status
+
+Codex runs commands in a sandbox that blocks network access by default, and kubectl needs the network. Put this in ~/.codex/config.toml:
+
+toml
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true
+6. Connect the machine to Switch
+
+In the dashboard, open Machines, click Add machine, and copy the one-time code (it lasts 10 minutes). Then:
+
+bash
+switch-agent-controller enroll --server http://127.0.0.1:8000 --code <the code> --name incident-box
 switch-agent-controller install-service
-codex login --device-auth
-```
+sudo loginctl enable-linger $USER      # keeps it running after you log out
+switch-agent-controller doctor         # every line should say ok
+7. Let the Release agent file GitHub issues
+bash
+gh auth login --with-token     # paste your fine-grained token, press Enter, then Ctrl+D
+gh auth status
+8. Create the two agents and the room
 
-**4. Agents and room**
+In the dashboard, on Machines, click New managed agent twice:
 
-In the gateway, Machines, New managed agent: create the two agents with the settings in `docs/agents/`. Then Rooms, New room: `incident-live`, bridge Mattermost, both agents, instructions from `docs/room-instructions.md`.
+	incident-inspector	incident-release
+Machine	incident-box	incident-box
+Provider	Codex	Codex
+Working directory	<project>/agents/inspector	<project>/agents/release
+Instructions	from docs/agents/inspector.md	from docs/agents/release.md (put your own GitHub repo name in it)
 
-**5. Run the incident**
+Both agents should show running. Then go to Rooms, click New room, name it incident-live, choose the Mattermost bridge, add both agents, and paste the text from docs/room-instructions.md.
 
-Break the service by hand (`docs/break-it-by-hand.md`), then in the room:
+Open Mattermost. The incident-live channel is there with both agents.
 
-```
+Run the demo
+
+1. Check everything is up
+
+bash
+switch-agent-controller doctor
+kubectl -n shop get pods
+
+2. Show what each agent is allowed to do
+
+bash
+kubectl --kubeconfig agents/inspector/kubeconfig auth can-i --list -n shop
+kubectl --kubeconfig agents/release/kubeconfig auth can-i --list -n shop
+
+3. Ship the bad release (the same steps are in docs/break-it-by-hand.md)
+
+bash
+kubectl config use-context kind-commander-room
+docker build --build-arg VERSION=v2 -t checkout:v2 app
+kind load docker-image checkout:v2 --name commander-room
+kubectl -n shop set image deployment/checkout checkout=checkout:v2
+kubectl -n shop annotate deployment/checkout --overwrite \
+  kubernetes.io/change-cause="release v2: preload price cache at startup"
+kubectl -n shop get pods -w
+
+Wait for CrashLoopBackOff, then press Ctrl+C.
+
+4. Handle it in the chat. In incident-live, type these one at a time and wait for each answer:
+
 @incident-inspector the shop checkout service looks broken after the latest release. Investigate.
 @incident-release roll back checkout to the previous revision
 approve
-```
 
-## Layout
+Under any agent reply, click Show activity to see every command it ran.
 
-```
-app/        checkout service v1 (healthy) and v2 (OOMs under the 128Mi limit)
-k8s/        namespace, deployment, RBAC roles for the two agents
-scripts/    cluster, deploy, agent kubeconfig and reset scripts
-docs/       agent instructions, room instructions, manual break steps
-```
+5. Check the result
 
-## Built during the hackathon
+bash
+kubectl -n shop get pods
+kubectl -n shop rollout history deployment/checkout
 
-Written during Flip the Switch (Nov 2026). I used Claude as an AI assistant for planning, scripts and debugging.
+Then open the Issues tab of this repo. The incident report is there.
 
-## License
+6. Reset for another run
 
-MIT, see `LICENSE`.
+bash
+./scripts/05-reset.sh
+If you stop and start the machine
+
+Docker's network can go stale, and Switch and Mattermost then cannot find each other. This script fixes it without deleting any data:
+
+bash
+./scripts/revive.sh
+What you see	What to do
+localhost refuses to connect	The tunnel closed. Open it again.
+Page resets or says "Failed to fetch"	Run ./scripts/revive.sh on the machine.
+An agent is not running	Click its restart icon on the Machines page.
+An agent does not answer	Run journalctl --user -u switch-agent-controller -n 50 on the machine.
+Agent keys stopped working	They last 96 hours. Run ./scripts/04-agent-access.sh again.
+What is not perfect
+Both agents run as the same user on the same machine. Each is told to stay in its own folder, but nothing at the system level stops the Inspector from reading the Release agent's key file. Running each agent as its own user would close this. I did not get to it.
+Both agents share the same GitHub sign-in. It is limited to issues on this one repository.
+Nothing raises the alarm on its own. A person reports the problem in the chat. Posting alerts into the room automatically is the obvious next step.
+Codex on a free account has limited use, so a long session could run out.
+No release of the agent controller was published during the hackathon, so I built it from source.
+Files
+app/        the checkout service: v1 (healthy) and v2 (runs out of memory)
+k8s/        the app definition and the permissions for each agent
+scripts/    cluster, deploy, agent keys, reset and recovery scripts
+docs/       architecture picture, agent and room instructions, steps to break the app
+Built during the hackathon
+
+I built this during Flip the Switch in November 2026. I used Claude as an AI helper for planning, scripts and debugging.
+
+License
+
+MIT. See LICENSE.
