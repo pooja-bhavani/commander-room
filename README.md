@@ -2,7 +2,8 @@
 
 An automated, human-in-the-loop Incident Command Room built with **Switch AI**
 
-[![Interactive Switch](https://codepen.io/Pooja-Bhavani/pen/01a1b5cc-ce34-74fa-b113-1201691e707d)
+![Interactive Switch](https://codepen.io/Pooja-Bhavani/pen/01a1b5cc-ce34-74fa-b113-1201691e707d)
+[![Interactive Switch Demo](./demo.gif)](https://codepen.io/Pooja-Bhavani/pen/01a1b5cc-ce34-74fa-b113-1201691e707d)
 
 When a release breaks production, two agents handle it in a chat room:
 
