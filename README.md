@@ -201,6 +201,7 @@ kubectl -n shop get pods
 ```
 <img width="2021" height="312" alt="Screenshot 2026-11-07 at 8 04 59 pm" src="https://github.com/user-attachments/assets/0da57c32-1cd1-44e1-bb07-5a1ac71966cf" />
 
+
 2. Show what each agent is allowed to do
 
 ```bash
