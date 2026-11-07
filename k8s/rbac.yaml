@@ -1,0 +1,75 @@
+# Two identities for the two agents. The Inspector can only read in namespace
+# shop; the Release agent can only roll the checkout deployment back. Kubernetes
+# enforces this, not the agents' instructions.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: inspector
+  namespace: shop
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: inspector-read
+  namespace: shop
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: inspector-read
+  namespace: shop
+subjects:
+  - kind: ServiceAccount
+    name: inspector
+    namespace: shop
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: inspector-read
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: release
+  namespace: shop
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: release-rollback
+  namespace: shop
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["checkout"]
+    verbs: ["get", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: release-rollback
+  namespace: shop
+subjects:
+  - kind: ServiceAccount
+    name: release
+    namespace: shop
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: release-rollback

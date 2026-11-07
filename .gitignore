@@ -1,0 +1,7 @@
+agents/
+.env
+agents.env
+*.pem
+*.kubeconfig
+kubeconfig
+.DS_Store
