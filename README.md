@@ -196,7 +196,8 @@ Run the demo
 1. Check everything is up
 
 ```bash
-![Uploading Screenshot 2026-11-07 at 8.11.19 pm.png…]()
+switch-agent-controller doctor
+kubectl -n shop get pods
 ```
 <img width="1905" height="395" alt="Screenshot 2026-11-07 at 8 11 41 pm" src="https://github.com/user-attachments/assets/a887ca36-21ec-445d-a882-8653c7036809" />
 
