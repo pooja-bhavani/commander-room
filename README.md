@@ -244,28 +244,30 @@ Docker's network can go stale, and Switch and Mattermost then cannot find each o
 ```bash
 ./scripts/revive.sh
 ```
-<img width="697" height="318" alt="Screenshot 2026-11-07 at 7 54 12 pm" src="https://github.com/user-attachments/assets/65120672-6a45-4efc-af26-5163ab32353a" />
 
-What you see	What to do
-localhost refuses to connect	The tunnel closed. Open it again.
-Page resets or says "Failed to fetch"	Run ./scripts/revive.sh on the machine.
-An agent is not running	Click its restart icon on the Machines page.
-An agent does not answer	Run journalctl --user -u switch-agent-controller -n 50 on the machine.
-Agent keys stopped working	They last 96 hours. Run ./scripts/04-agent-access.sh again.
-What is not perfect
-Both agents run as the same user on the same machine. Each is told to stay in its own folder, but nothing at the system level stops the Inspector from reading the Release agent's key file. Running each agent as its own user would close this. I did not get to it.
-Both agents share the same GitHub sign-in. It is limited to issues on this one repository.
-Nothing raises the alarm on its own. A person reports the problem in the chat. Posting alerts into the room automatically is the obvious next step.
-Codex on a free account has limited use, so a long session could run out.
-No release of the agent controller was published during the hackathon, so I built it from source.
-Files
-app/        the checkout service: v1 (healthy) and v2 (runs out of memory)
-k8s/        the app definition and the permissions for each agent
-scripts/    cluster, deploy, agent keys, reset and recovery scripts
-docs/       architecture picture, agent and room instructions, steps to break the app
-Built during the hackathon
+| Part | What it does | Where it runs | Port |
+|---|---|---|---|
+| Mattermost | The team chat where you talk to the agents | Docker, on the machine | 8065 |
+| switch-core | Switch's server: keeps the rooms, decides which agent a message is for | Docker, on the machine | 8000 |
+| Switch gateway | The dashboard for machines, agents and rooms | Docker, on the machine | 3000 |
+| Postgres | Stores every room message | Docker, on the machine | internal |
+| Agent controller | Starts the agents when they are needed | systemd service, on the machine | none |
+| incident-inspector | Investigates the cluster. Can only read. | Codex, started by the controller | none |
+| incident-release | Rolls back after you approve, then files the report | Codex, started by the controller | none |
+| kind cluster | A real Kubernetes cluster holding the checkout app | Docker, on the machine | internal |
+| GitHub | Holds the incident report as an issue | github.com | none |
 
-I built this during Flip the Switch in November 2026. I used Claude as an AI helper for planning, scripts and debugging.
+| Step | What happens |
+|---|---|
+| 1 | You type a message in Mattermost |
+| 2 | Switch reads it and works out which agent it is for |
+| 3 | The agent controller starts that agent |
+| 4 | The agent runs real `kubectl` commands using its own key file |
+| 5 | Kubernetes checks the command against that agent's permissions |
+| 6 | The answer comes back through Switch into the chat |
+| 7 | After a rollback, the Release agent files the report on GitHub |
+
+I built this for Flip the Switch Hackathon. 
 
 License
 
