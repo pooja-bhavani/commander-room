@@ -2,8 +2,6 @@
 
 An incident room where two AI agents do the digging, and a human still makes the call. Built with **Switch AI**
 
-video: <VIDEO_LINK>
-
 ## The problem
 
 When a release breaks production, the first ten minutes are messy. People paste kubectl commands into the chat, someone asks which release just went out, and nobody is sure who is allowed to roll things back.
