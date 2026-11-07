@@ -38,12 +38,7 @@ How it works
 
 ## Architecture
 
-You write in Mattermost, the team chat.
-Switch puts the agents in that room. It reads your message, works out which agent it is for, and keeps the whole conversation.
-A small Switch program called the agent controller runs on the same machine and starts the agent when it is needed.
-The agents run on Codex. Each one runs real kubectl commands with its own key file against the Kubernetes cluster.
-Kubernetes checks every command against that agent's permissions.
-The answer comes back to the chat. After a rollback, the Release agent files the report on GitHub.
+<img width="1568" height="990" alt="image" src="https://github.com/user-attachments/assets/8ee9cb1c-68a8-4cdc-9c25-896b20e15610" />
 
 ## Why Switch is the centre of it
 
