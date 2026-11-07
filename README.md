@@ -244,6 +244,7 @@ Docker's network can go stale, and Switch and Mattermost then cannot find each o
 ```bash
 ./scripts/revive.sh
 ```
+## Components
 
 | Part | What it does | Where it runs | Port |
 |---|---|---|---|
@@ -256,6 +257,8 @@ Docker's network can go stale, and Switch and Mattermost then cannot find each o
 | incident-release | Rolls back after you approve, then files the report | Codex, started by the controller | none |
 | kind cluster | A real Kubernetes cluster holding the checkout app | Docker, on the machine | internal |
 | GitHub | Holds the incident report as an issue | github.com | none |
+
+## What happens to one message
 
 | Step | What happens |
 |---|---|
