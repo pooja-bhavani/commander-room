@@ -1,4 +1,4 @@
-# commander-room
+<img width="1612" height="284" alt="Screenshot 2026-11-07 at 8 04 40 pm" src="https://github.com/user-attachments/assets/7580ad39-8470-4a65-b8be-616960c42375" /># commander-room
 
 An incident room where two AI agents do the digging, and a human still makes the call. Built with **Switch AI**
 
@@ -85,6 +85,8 @@ sudo npm install -g @openai/codex pnpm@10.28.2
 ```
 
 The controller build needs Node 24. Install it with nvm (nvm install 24) for the build step only.
+
+<img width="1470" height="956" alt="Screenshot 2026-11-04 at 2 38 16 pm" src="https://github.com/user-attachments/assets/81f0b31a-d476-4795-9506-797f8b43c2c3" />
 
 ## Set it up 
 
@@ -197,6 +199,7 @@ Run the demo
 switch-agent-controller doctor
 kubectl -n shop get pods
 ```
+<img width="2021" height="312" alt="Screenshot 2026-11-07 at 8 04 59 pm" src="https://github.com/user-attachments/assets/0da57c32-1cd1-44e1-bb07-5a1ac71966cf" />
 
 2. Show what each agent is allowed to do
 
@@ -225,6 +228,10 @@ Wait for CrashLoopBackOff, then press Ctrl+C.
 approve
 
 Under any agent reply, click Show activity to see every command it ran.
+
+<img width="1920" height="1014" alt="Screenshot 2026-11-05 at 9 15 58 am" src="https://github.com/user-attachments/assets/82beed02-20a7-4f27-93d0-1f80b5504ae5" />
+ 
+
 
 5. Check the result
 
@@ -270,6 +277,7 @@ Docker's network can go stale, and Switch and Mattermost then cannot find each o
 | 5 | Kubernetes checks the command against that agent's permissions |
 | 6 | The answer comes back through Switch into the chat |
 | 7 | After a rollback, the Release agent files the report on GitHub |
+
 
 I built this for Flip the Switch Hackathon. 
 
