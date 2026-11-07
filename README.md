@@ -1,4 +1,4 @@
-<img width="1612" height="284" alt="Screenshot 2026-11-07 at 8 04 40 pm" src="https://github.com/user-attachments/assets/7580ad39-8470-4a65-b8be-616960c42375" /># commander-room
+# commander-room
 
 An incident room where two AI agents do the digging, and a human still makes the call. Built with **Switch AI**
 
