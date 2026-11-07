@@ -136,6 +136,12 @@ ssh -i <your-key>.pem -L 8065:127.0.0.1:8065 -L 3000:127.0.0.1:3000 -L 8000:127.
 
 Then open http://localhost:3000 (dashboard) and http://localhost:8065 (Mattermost).
 
+**Switch**
+<img width="1924" height="935" alt="Screenshot 2026-11-07 at 8 01 01 pm" src="https://github.com/user-attachments/assets/2b7b0194-97a0-4858-bcb5-f3550f22e551" />
+
+**Mattermost**
+<img width="1922" height="1014" alt="Screenshot 2026-11-07 at 8 01 32 pm" src="https://github.com/user-attachments/assets/216914ac-5e69-43e3-96fa-4fdd35a8bc9c" />
+
 4. Build the agent controller
 
 No ready-made release of the controller existed during the hackathon, so I built it from the Switch source with Node 24:
