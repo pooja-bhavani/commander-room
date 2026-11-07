@@ -1,4 +1,4 @@
-# commander-room
+# Commander-Room
 
 An incident room where two AI agents do the digging, and a human still makes the call. Built with **Switch AI**
 
