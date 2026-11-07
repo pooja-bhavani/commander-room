@@ -196,11 +196,9 @@ Run the demo
 1. Check everything is up
 
 ```bash
-switch-agent-controller doctor
-kubectl -n shop get pods
+![Uploading Screenshot 2026-11-07 at 8.11.19 pm.png…]()
 ```
-<img width="2021" height="312" alt="Screenshot 2026-11-07 at 8 04 59 pm" src="https://github.com/user-attachments/assets/0da57c32-1cd1-44e1-bb07-5a1ac71966cf" />
-
+<img width="1905" height="395" alt="Screenshot 2026-11-07 at 8 11 41 pm" src="https://github.com/user-attachments/assets/a887ca36-21ec-445d-a882-8653c7036809" />
 
 2. Show what each agent is allowed to do
 
