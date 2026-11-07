@@ -1,7 +1,8 @@
 # commander-room
 
-An AI incident-response room for team chat, built on [Switch](https://github.com/sandbox-quantum/switch)
-for the Flip the Switch hackathon (Track 1: Best Business Workflow).
+An automated, human-in-the-loop Incident Command Room built with **Switch AI**
+
+[![Interactive Switch](https://codepen.io/Pooja-Bhavani/pen/01a1b5cc-ce34-74fa-b113-1201691e707d)
 
 When a release breaks production, two agents handle it in a chat room:
 
